@@ -12,8 +12,19 @@ import (
 )
 
 type HttpServer struct {
+	addr string
 	r  *raft.Raft
 	db *sync.Map
+}
+
+func New(r *raft.Raft, db *sync.Map, addr string) *HttpServer {
+	return &HttpServer{addr, r, db}
+}
+
+func (hs HttpServer) Start() {
+	http.HandleFunc("/store", hs.keyhandler)
+	http.HandleFunc("/join", hs.joinHandler)
+	http.ListenAndServe(hs.addr, nil)
 }
 
 func (hs HttpServer) joinHandler(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +50,18 @@ func (hs HttpServer) joinHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (hs HttpServer) setHandler(w http.ResponseWriter, r *http.Request) {
+func (hs HttpServer) keyhandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		hs.setKey(w, r)
+	case http.MethodGet:
+		hs.getKey(w, r)
+	default:
+		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+	}
+}
+
+func (hs HttpServer) setKey(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	bs, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -67,7 +89,7 @@ func (hs HttpServer) setHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (hs HttpServer) getHandler(w http.ResponseWriter, r *http.Request) {
+func (hs HttpServer) getKey(w http.ResponseWriter, r *http.Request) {
 	key := r.URL.Query().Get("key")
 	value, _ := hs.db.Load(key)
 	if value == nil {
