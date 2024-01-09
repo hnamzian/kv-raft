@@ -18,6 +18,10 @@ type setPayload struct {
 	Value string
 }
 
+func NewKeyValueStore(db *sync.Map) *KeyValueStore {
+	return &KeyValueStore{db}
+}
+
 func (s *KeyValueStore) Apply(log *raft.Log) any {
 	switch log.Type {
 	case raft.LogCommand:
